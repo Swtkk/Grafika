@@ -22,3 +22,4 @@ C:\Users\mgawryluk\source\repos\Graf\Graf\obj\Debug\net9.0-windows\refint\Graf.d
 C:\Users\mgawryluk\source\repos\Graf\Graf\obj\Debug\net9.0-windows\Graf.pdb
 C:\Users\mgawryluk\source\repos\Graf\Graf\obj\Debug\net9.0-windows\Graf.genruntimeconfig.cache
 C:\Users\mgawryluk\source\repos\Graf\Graf\obj\Debug\net9.0-windows\ref\Graf.dll
+C:\Users\mgawryluk\source\repos\Graf\Graf\obj\Debug\net9.0-windows\Graf.sourcelink.json

@@ -17,13 +17,11 @@
             <Button x:Name="OpenCanvasBtn" Content="🖊️  Canvas (rysowanie)"
             Padding="18,12" FontSize="16" Width="220" Margin="10"
             Click="OpenCanvasBtn_Click"/>
-            <Button x:Name="OpenPpmBtn" Content="🖼️  PPM (obrazy/kolory)"
+            <Button x:Name="OpenPpmBtn" Content="🎨  Kolory RGB↔CMYK"
             Padding="18,12" FontSize="16" Width="220" Margin="10"
             Click="OpenPpmBtn_Click"/>
         </StackPanel>
 
 
-        <TextBlock Grid.Row="2" Foreground="#9FB0C6" FontSize="12" Margin="12"
-                   Text="Moduł 1: prymitywy graficzne z edycją i zapisem  •  Moduł 2: PPM/JPEG + podgląd kolorów" />
     </Grid>
 </Window>
