@@ -1,0 +1,151 @@
+﻿<Window x:Class="Graf.Views.PPM"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="PPM" Height="800" Width="1200" WindowStartupLocation="CenterScreen">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*"/>
+            <ColumnDefinition Width="420"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- LEWA: obraz + odczyt piksela -->
+        <Grid Grid.Column="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" BorderBrush="#DDD" BorderThickness="1" Margin="8">
+                <Image x:Name="displayedImage"
+                       Stretch="Fill"
+                       MouseMove="OnImageMouseMove"/>
+            </Border>
+
+            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="8">
+                <TextBlock Name="pixelInfoTextBlock"
+                           VerticalAlignment="Center"
+                           Margin="0,0,10,0"/>
+                <CheckBox x:Name="PickFromImageCheck"
+                          Content="Pobieraj kolor z obrazu (pod kursorem)"
+                          VerticalAlignment="Center"/>
+            </StackPanel>
+        </Grid>
+
+        <!-- PRAWA: narzędzia -->
+        <ScrollViewer Grid.Column="1" Background="White" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="12">
+
+                <!-- Plik -->
+                <GroupBox Header="Plik" Margin="0,0,0,12">
+                    <StackPanel Margin="8">
+                        <Label Content="Poziom kompresji (JPEG 0–100)"/>
+                        <TextBox x:Name="qualityTextBox" Text="95" Width="80" Margin="0,0,0,8"/>
+                        <WrapPanel>
+                            <Button Content="Wczytaj obraz" Click="LoadImage_Click" Margin="0,0,8,0" Width="140"/>
+                            <Button Content="Zapisz do JPEG" Click="SaveToJPEG_Click" Width="140"/>
+                        </WrapPanel>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- MODELE BARW -->
+                <GroupBox Header="Modele barw – konwersja RGB ↔ CMYK" Margin="0,0,0,12">
+                    <Grid Margin="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Tryb -->
+                        <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="0,0,0,8">
+                            <TextBlock Text="Tryb: " VerticalAlignment="Center"/>
+                            <RadioButton x:Name="RgbModeRadio" Content="RGB" IsChecked="True"
+                                         Checked="RgbModeRadio_Checked" Margin="8,0"/>
+                            <RadioButton x:Name="CmykModeRadio" Content="CMYK"
+                                         Checked="CmykModeRadio_Checked" Margin="8,0"/>
+                        </StackPanel>
+
+                        <!-- RGB -->
+                        <StackPanel x:Name="RgbPanel" Grid.Row="1">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                <TextBlock Text="R:" Width="20" VerticalAlignment="Center"/>
+                                <Slider x:Name="RSlider" Minimum="0" Maximum="255" Width="220"
+                                        ValueChanged="RSlider_ValueChanged"/>
+                                <TextBox x:Name="RBox" Width="50" Margin="8,0,0,0"
+                                         TextChanged="RBox_TextChanged"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                <TextBlock Text="G:" Width="20" VerticalAlignment="Center"/>
+                                <Slider x:Name="GSlider" Minimum="0" Maximum="255" Width="220"
+                                        ValueChanged="GSlider_ValueChanged"/>
+                                <TextBox x:Name="GBox" Width="50" Margin="8,0,0,0"
+                                         TextChanged="GBox_TextChanged"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="B:" Width="20" VerticalAlignment="Center"/>
+                                <Slider x:Name="BSlider" Minimum="0" Maximum="255" Width="220"
+                                        ValueChanged="BSlider_ValueChanged"/>
+                                <TextBox x:Name="BBox" Width="50" Margin="8,0,0,0"
+                                         TextChanged="BBox_TextChanged"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- CMYK -->
+                        <StackPanel x:Name="CmykPanel" Grid.Row="2" Visibility="Collapsed">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                <TextBlock Text="C:" Width="20" VerticalAlignment="Center"/>
+                                <Slider x:Name="CSlider" Minimum="0" Maximum="100" Width="220"
+                                        ValueChanged="CSlider_ValueChanged"/>
+                                <TextBox x:Name="CBox" Width="50" Margin="8,0,0,0"
+                                         TextChanged="CBox_TextChanged"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                <TextBlock Text="M:" Width="20" VerticalAlignment="Center"/>
+                                <Slider x:Name="MSlider" Minimum="0" Maximum="100" Width="220"
+                                        ValueChanged="MSlider_ValueChanged"/>
+                                <TextBox x:Name="MBox" Width="50" Margin="8,0,0,0"
+                                         TextChanged="MBox_TextChanged"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                <TextBlock Text="Y:" Width="20" VerticalAlignment="Center"/>
+                                <Slider x:Name="YSlider" Minimum="0" Maximum="100" Width="220"
+                                        ValueChanged="YSlider_ValueChanged"/>
+                                <TextBox x:Name="YBox" Width="50" Margin="8,0,0,0"
+                                         TextChanged="YBox_TextChanged"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="K:" Width="20" VerticalAlignment="Center"/>
+                                <Slider x:Name="KSlider" Minimum="0" Maximum="100" Width="220"
+                                        ValueChanged="KSlider_ValueChanged"/>
+                                <TextBox x:Name="KBox" Width="50" Margin="8,0,0,0"
+                                         TextChanged="KBox_TextChanged"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Podgląd -->
+                        <Border Grid.Row="3" Margin="0,10,0,0" Padding="10" BorderBrush="#CCC" BorderThickness="1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="160"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Border x:Name="ColorPreview" Width="140" Height="110" CornerRadius="6" Background="Black"/>
+                                <StackPanel Grid.Column="1" Margin="16,0,0,0">
+                                    <TextBlock Text="Bieżący kolor:" FontWeight="Bold" Margin="0,0,0,6"/>
+                                    <TextBlock x:Name="RgbLabel" Text="RGB: 0, 0, 0" Margin="0,0,0,2"/>
+                                    <TextBlock x:Name="HexLabel" Text="#000000" Margin="0,0,0,2"/>
+                                    <TextBlock x:Name="CmykLabel" Text="CMYK: 0, 0, 0, 100"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </GroupBox>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>
