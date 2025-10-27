@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\mgawryluk\\source\\repos\\Graf\\Graf\\Graf.csproj": {}
+    "C:\\Users\\mgawryluk\\source\\repos\\Swtkk\\Grafika\\Graf.csproj": {}
   },
   "projects": {
-    "C:\\Users\\mgawryluk\\source\\repos\\Graf\\Graf\\Graf.csproj": {
+    "C:\\Users\\mgawryluk\\source\\repos\\Swtkk\\Grafika\\Graf.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\mgawryluk\\source\\repos\\Graf\\Graf\\Graf.csproj",
+        "projectUniqueName": "C:\\Users\\mgawryluk\\source\\repos\\Swtkk\\Grafika\\Graf.csproj",
         "projectName": "Graf",
-        "projectPath": "C:\\Users\\mgawryluk\\source\\repos\\Graf\\Graf\\Graf.csproj",
+        "projectPath": "C:\\Users\\mgawryluk\\source\\repos\\Swtkk\\Grafika\\Graf.csproj",
         "packagesPath": "C:\\Users\\mgawryluk\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\mgawryluk\\source\\repos\\Graf\\Graf\\obj\\",
+        "outputPath": "C:\\Users\\mgawryluk\\source\\repos\\Swtkk\\Grafika\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

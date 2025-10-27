@@ -1,27 +1,48 @@
 ﻿<Window x:Class="Graf.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Grafika – wybór modułu" Height="360" Width="520" WindowStartupLocation="CenterScreen">
-    <Grid Background="#0B0F1A">
+        Title="Grafika – wybór modułu" Height="380" Width="530"
+        WindowStartupLocation="CenterScreen"
+        Background="#0B0F1A">
+
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
+        <!-- Nagłówek -->
         <TextBlock Text="Wybierz moduł"
                    Foreground="White" FontSize="28" FontWeight="Bold"
-                   Margin="20" />
+                   Margin="20" HorizontalAlignment="Center"/>
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <!-- Menu z trzema modułami -->
+        <StackPanel Grid.Row="1" Orientation="Vertical"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+
             <Button x:Name="OpenCanvasBtn" Content="🖊️  Canvas (rysowanie)"
-            Padding="18,12" FontSize="16" Width="220" Margin="10"
-            Click="OpenCanvasBtn_Click"/>
-            <Button x:Name="OpenPpmBtn" Content="🎨  Kolory RGB↔CMYK"
-            Padding="18,12" FontSize="16" Width="220" Margin="10"
-            Click="OpenPpmBtn_Click"/>
+                    Padding="18,12" FontSize="18" Width="260" Margin="10"
+                    Background="#1A2233" Foreground="White"
+                    BorderBrush="#445" BorderThickness="1"
+                    Click="OpenCanvasBtn_Click"/>
+
+            <Button x:Name="OpenPpmBtn" Content="🎨  Kolory RGB ↔ CMYK"
+                    Padding="18,12" FontSize="18" Width="260" Margin="10"
+                    Background="#1A2233" Foreground="White"
+                    BorderBrush="#445" BorderThickness="1"
+                    Click="OpenPpmBtn_Click"/>
+
+            <Button x:Name="OpenPpmModule" Content="🖼️  PPM (grafika)"
+                    Padding="18,12" FontSize="18" Width="260" Margin="10"
+                    Background="#1A2233" Foreground="White"
+                    BorderBrush="#445" BorderThickness="1"
+                    Click="PPM_Click"/>
         </StackPanel>
 
-
+        <!-- Stopka -->
+        <TextBlock Grid.Row="2" Text="© Projekt Grafika 2025"
+                   HorizontalAlignment="Center" Margin="0,0,0,10"
+                   Foreground="#778"/>
     </Grid>
 </Window>

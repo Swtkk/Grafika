@@ -5,7 +5,7 @@
     <Compile Update="Views\CanvasView.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Update="Views\PPM.xaml.cs">
+    <Compile Update="Views\Cmyk.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>

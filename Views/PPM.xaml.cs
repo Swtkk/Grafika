@@ -1,103 +1,446 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using System.Windows;
-using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace Graf.Views
 {
+    /// <summary>
+    /// Logika interakcji dla klasy PPM.xaml
+    /// </summary>
     public partial class PPM : Window
     {
-        private bool _updating;
-        private byte _r, _g, _b;
+        private TranslateTransform _imageTranslate;
+        private ScaleTransform _imageScale;
+        private System.Windows.Point _lastMousePosition;
 
         public PPM()
         {
             InitializeComponent();
-            SetRgb(0, 0, 0);
+            // Transformacje do zoom/pan
+            var transformGroup = new TransformGroup();
+            _imageScale = new ScaleTransform(1.0, 1.0);
+            _imageTranslate = new TranslateTransform(0, 0);
+            transformGroup.Children.Add(_imageScale);
+            transformGroup.Children.Add(_imageTranslate);
+            displayedImage.RenderTransform = transformGroup;
+
+            // Zoom kółkiem + Ctrl
+            displayedImage.PreviewMouseWheel += (sender, e) =>
+            {
+                if (Keyboard.Modifiers == ModifierKeys.Control)
+                {
+                    double scaleChange = e.Delta > 0 ? 1.1 : 0.9;
+                    _imageScale.ScaleX *= scaleChange;
+                    _imageScale.ScaleY *= scaleChange;
+                    e.Handled = true;
+                }
+            };
+
+            // Pan LPM
+            displayedImage.PreviewMouseLeftButtonDown += (sender, e) =>
+            {
+                _lastMousePosition = e.GetPosition(displayedImage);
+                displayedImage.CaptureMouse();
+            };
+
+            displayedImage.PreviewMouseLeftButtonUp += (sender, e) =>
+            {
+                displayedImage.ReleaseMouseCapture();
+            };
+
+            displayedImage.PreviewMouseMove += (sender, e) =>
+            {
+                if (!displayedImage.IsMouseCaptured) return;
+
+                var newPos = e.GetPosition(displayedImage);
+
+                // Pan dostępny sensownie przy powiększeniu
+                if (_imageScale.ScaleX > 1.0 || _imageScale.ScaleY > 1.0)
+                {
+                    double dx = newPos.X - _lastMousePosition.X;
+                    double dy = newPos.Y - _lastMousePosition.Y;
+                    _lastMousePosition = newPos;
+                    _imageTranslate.X += dx;
+                    _imageTranslate.Y += dy;
+                }
+            };
+
+            // Podgląd koloru pikseli
+            displayedImage.MouseMove += OnImageMouseMove;
         }
 
-        // ====== konwersje ======
-        private (double C, double M, double Y, double K) RgbToCmyk(byte r, byte g, byte b)
+        // Mapowanie myszy -> piksel z uwzględnieniem transformacji i konwersją do BGRA32
+        private void OnImageMouseMove(object sender, MouseEventArgs e)
         {
-            double rd = r / 255.0, gd = g / 255.0, bd = b / 255.0;
-            double k = 1.0 - Math.Max(rd, Math.Max(gd, bd));
-            double c = (1 - rd - k) / (1 - k);
-            double m = (1 - gd - k) / (1 - k);
-            double y = (1 - bd - k) / (1 - k);
-            if (double.IsNaN(c)) c = 0;
-            if (double.IsNaN(m)) m = 0;
-            if (double.IsNaN(y)) y = 0;
-            return (c * 100.0, m * 100.0, y * 100.0, k * 100.0);
-        }
-        private (byte R, byte G, byte B) CmykToRgb(double c, double m, double y, double k)
-        {
-            double C = c / 100.0, M = m / 100.0, Y = y / 100.0, K = k / 100.0;
-            double r = 255.0 * (1 - C) * (1 - K);
-            double g = 255.0 * (1 - M) * (1 - K);
-            double b = 255.0 * (1 - Y) * (1 - K);
-            return ((byte)Math.Round(r), (byte)Math.Round(g), (byte)Math.Round(b));
+            if (displayedImage.Source is not BitmapSource src) return;
+            if (displayedImage.ActualWidth <= 0 || displayedImage.ActualHeight <= 0) return;
+
+            var pos = e.GetPosition(displayedImage);
+
+            // Odwrócenie RenderTransform
+            if (displayedImage.RenderTransform is Transform t && !t.Value.IsIdentity)
+            {
+                var m = t.Value;
+                if (m.HasInverse)
+                {
+                    m.Invert();
+                    pos = m.Transform(pos);
+                }
+            }
+
+            double sx = src.PixelWidth / displayedImage.ActualWidth;
+            double sy = src.PixelHeight / displayedImage.ActualHeight;
+
+            int x = (int)Math.Floor(pos.X * sx);
+            int y = (int)Math.Floor(pos.Y * sy);
+
+            if (x < 0 || y < 0 || x >= src.PixelWidth || y >= src.PixelHeight) return;
+
+            // Wymuszenie BGRA32 dla stabilnego odczytu
+            var fmt = PixelFormats.Bgra32;
+            BitmapSource converted = src.Format == fmt ? src : new FormatConvertedBitmap(src, fmt, null, 0);
+
+            byte[] pixel = new byte[4]; // BGRA
+            converted.CopyPixels(new Int32Rect(x, y, 1, 1), pixel, 4, 0);
+
+            var color = Color.FromArgb(pixel[3], pixel[2], pixel[1], pixel[0]);
+            pixelInfoTextBlock.Text = $"R: {color.R}, G: {color.G}, B: {color.B}\nX: {x} Y: {y}";
         }
 
-        private void SetRgb(byte r, byte g, byte b)
+        // Wczytywanie obrazów
+        private void LoadImage_Click(object sender, RoutedEventArgs e)
         {
-            _r = r; _g = g; _b = b;
-            _updating = true;
+            var ofd = new OpenFileDialog
+            {
+                Filter = "Pliki PPM|*.ppm|Pliki JPEG|*.jpg;*.jpeg"
+            };
+
+            if (ofd.ShowDialog() != true) return;
+
+            string path = ofd.FileName;
+
             try
             {
-                RSlider.Value = r; GSlider.Value = g; BSlider.Value = b;
-                RBox.Text = r.ToString(); GBox.Text = g.ToString(); BBox.Text = b.ToString();
-
-                var (C, M, Y, K) = RgbToCmyk(r, g, b);
-                CSlider.Value = C; MSlider.Value = M; YSlider.Value = Y; KSlider.Value = K;
-                CBox.Text = Math.Round(C, 1).ToString("0.#");
-                MBox.Text = Math.Round(M, 1).ToString("0.#");
-                YBox.Text = Math.Round(Y, 1).ToString("0.#");
-                KBox.Text = Math.Round(K, 1).ToString("0.#");
-
-                ColorPreview.Background = new SolidColorBrush(Color.FromRgb(r, g, b));
-                RgbLabel.Text = $"RGB: {r}, {g}, {b}";
-                HexLabel.Text = $"#{r:X2}{g:X2}{b:X2}";
-                CmykLabel.Text = $"CMYK: {Math.Round(C, 1)}, {Math.Round(M, 1)}, {Math.Round(Y, 1)}, {Math.Round(K, 1)}";
+                if (path.EndsWith(".ppm", StringComparison.OrdinalIgnoreCase))
+                {
+                    string magic = ReadPPMFormat(path);
+                    if (magic == "P3")
+                    {
+                        displayedImage.Source = LoadPPM_P3(path);
+                    }
+                    else if (magic == "P6")
+                    {
+                        displayedImage.Source = LoadPPM_P6(path);
+                    }
+                    else
+                    {
+                        MessageBox.Show("Nieobsługiwany format PPM. Wspierane: P3, P6.");
+                    }
+                }
+                else if (path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
+                {
+                    displayedImage.Source = LoadJpeg(path);
+                }
+                else
+                {
+                    MessageBox.Show("Nieobsługiwany format pliku.");
+                }
             }
-            finally { _updating = false; }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Błąd podczas wczytywania: " + ex.Message);
+            }
         }
 
-        // ====== RGB handlers ======
-        private void RSlider_ValueChanged(object s, RoutedPropertyChangedEventArgs<double> e) { if (_updating) return; SetRgb((byte)e.NewValue, _g, _b); }
-        private void GSlider_ValueChanged(object s, RoutedPropertyChangedEventArgs<double> e) { if (_updating) return; SetRgb(_r, (byte)e.NewValue, _b); }
-        private void BSlider_ValueChanged(object s, RoutedPropertyChangedEventArgs<double> e) { if (_updating) return; SetRgb(_r, _g, (byte)e.NewValue); }
-
-        private static byte ParseByte(string t) => byte.TryParse(t, out var v) ? v : (byte)0;
-        private void RBox_TextChanged(object s, TextChangedEventArgs e) { if (_updating) return; SetRgb(ParseByte(RBox.Text), _g, _b); }
-        private void GBox_TextChanged(object s, TextChangedEventArgs e) { if (_updating) return; SetRgb(_r, ParseByte(GBox.Text), _b); }
-        private void BBox_TextChanged(object s, TextChangedEventArgs e) { if (_updating) return; SetRgb(_r, _g, ParseByte(BBox.Text)); }
-
-        // ====== CMYK handlers ======
-        private void CSlider_ValueChanged(object s, RoutedPropertyChangedEventArgs<double> e) { if (_updating) return; ApplyCmyk(); }
-        private void MSlider_ValueChanged(object s, RoutedPropertyChangedEventArgs<double> e) { if (_updating) return; ApplyCmyk(); }
-        private void YSlider_ValueChanged(object s, RoutedPropertyChangedEventArgs<double> e) { if (_updating) return; ApplyCmyk(); }
-        private void KSlider_ValueChanged(object s, RoutedPropertyChangedEventArgs<double> e) { if (_updating) return; ApplyCmyk(); }
-
-        private void CBox_TextChanged(object s, TextChangedEventArgs e) { if (_updating) return; ApplyCmyk(true); }
-        private void MBox_TextChanged(object s, TextChangedEventArgs e) { if (_updating) return; ApplyCmyk(true); }
-        private void YBox_TextChanged(object s, TextChangedEventArgs e) { if (_updating) return; ApplyCmyk(true); }
-        private void KBox_TextChanged(object s, TextChangedEventArgs e) { if (_updating) return; ApplyCmyk(true); }
-
-        private static double ClampPct(string t)
+        private BitmapSource LoadJpeg(string filePath)
         {
-            if (!double.TryParse(t, out var v)) v = 0;
-            if (v < 0) v = 0; if (v > 100) v = 100;
-            return v;
+            var img = new BitmapImage();
+            img.BeginInit();
+            img.CacheOption = BitmapCacheOption.OnLoad; // zwolnij uchwyt do pliku
+            img.UriSource = new Uri(filePath);
+            img.EndInit();
+            img.Freeze();
+            return img;
         }
-        private void ApplyCmyk(bool fromText = false)
-        {
-            double c = fromText ? ClampPct(CBox.Text) : CSlider.Value;
-            double m = fromText ? ClampPct(MBox.Text) : MSlider.Value;
-            double y = fromText ? ClampPct(YBox.Text) : YSlider.Value;
-            double k = fromText ? ClampPct(KBox.Text) : KSlider.Value;
 
-            var (R, G, B) = CmykToRgb(c, m, y, k);
-            SetRgb(R, G, B);
+        // Zapis JPEG z kontrolą jakości i konwersją formatu
+        private void SaveToJPEG_Click(object sender, RoutedEventArgs e)
+        {
+            if (displayedImage.Source is not BitmapSource src)
+            {
+                MessageBox.Show("Brak obrazu do zapisania.");
+                return;
+            }
+
+            var sfd = new SaveFileDialog
+            {
+                Filter = "Pliki JPEG|*.jpg;*.jpeg",
+                DefaultExt = ".jpg"
+            };
+
+            if (sfd.ShowDialog() != true) return;
+
+            try
+            {
+                int quality = 95;
+                if (!string.IsNullOrWhiteSpace(qualityTextBox?.Text) &&
+                    int.TryParse(qualityTextBox.Text, out int q))
+                {
+                    quality = Math.Clamp(q, 1, 100);
+                }
+
+                // Upewnij się, że mamy format nadający się do zapisu
+                BitmapSource toSave = src.Format == PixelFormats.Bgra32
+                    ? src
+                    : new FormatConvertedBitmap(src, PixelFormats.Bgra32, null, 0);
+
+                var encoder = new JpegBitmapEncoder
+                {
+                    QualityLevel = quality
+                };
+                encoder.Frames.Add(BitmapFrame.Create(toSave));
+
+                using var fs = new FileStream(sfd.FileName, FileMode.Create, FileAccess.Write);
+                encoder.Save(fs);
+
+                MessageBox.Show("Zapisano obraz jako JPEG.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Błąd podczas zapisu JPEG: " + ex.Message);
+            }
+        }
+
+        // -----------------------------------------
+        //             PPM: P3 (ASCII)
+        // -----------------------------------------
+        private BitmapSource LoadPPM_P3(string filePath)
+        {
+            using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var sr = new StreamReader(fs, Encoding.ASCII, detectEncodingFromByteOrderMarks: false);
+
+            // 1) Magic
+            string magic = ReadNonEmptyNonCommentLine(sr);
+            if (magic != "P3") throw new InvalidDataException("Niepoprawny nagłówek P3.");
+
+            // 2) width height
+            ReadWidthHeight(sr, out int width, out int height);
+
+            // 3) maxVal
+            int maxVal = ReadNextIntToken(sr);
+            if (maxVal <= 0) throw new InvalidDataException("Niepoprawne maxVal.");
+
+            // 4) RGB wartości jako tokeny liczbowe
+            int expectedSamples = width * height * 3;
+            byte[] rgb = new byte[expectedSamples];
+            int idx = 0;
+
+            while (idx < expectedSamples)
+            {
+                int val = ReadNextIntToken(sr);
+                if (maxVal != 255)
+                {
+                    double scale = 255.0 / maxVal;
+                    val = (int)Math.Round(val * scale);
+                }
+                rgb[idx++] = (byte)Math.Clamp(val, 0, 255);
+            }
+
+            // 5) Utworzenie WriteableBitmap RGB24
+            return BuildBitmapFromRGB24(width, height, rgb);
+        }
+
+        // -----------------------------------------
+        //             PPM: P6 (BINARNY)
+        // -----------------------------------------
+        private BitmapSource LoadPPM_P6(string filePath)
+        {
+            using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var br = new BinaryReader(fs, Encoding.ASCII, leaveOpen: false);
+
+            // 1) Magic "P6"
+            string magic = ReadAsciiToken(br);
+            if (magic != "P6") throw new InvalidDataException("Niepoprawny nagłówek P6.");
+
+            // 2) width height maxVal jako ASCII tokeny z pomijaniem komentarzy
+            int width = int.Parse(ReadAsciiToken(br));
+            int height = int.Parse(ReadAsciiToken(br));
+            int maxVal = int.Parse(ReadAsciiToken(br));
+
+            if (width <= 0 || height <= 0 || maxVal <= 0) throw new InvalidDataException("Błędne wymiary lub maxVal.");
+
+            // 3) Co najmniej jeden biały znak po nagłówku
+            int next = br.PeekChar();
+            if (next == -1) throw new EndOfStreamException();
+            if (!IsAsciiWhitespace((byte)next)) throw new InvalidDataException("Brak separatora po nagłówku P6.");
+            // Zjedz pojedynczą spację/CR/LF/tab
+            _ = br.ReadByte();
+
+            int pixelCount = width * height;
+            byte[] rgb = new byte[pixelCount * 3];
+
+            if (maxVal <= 255)
+            {
+                // 1 bajt na kanał
+                int toRead = pixelCount * 3;
+                int read = br.Read(rgb, 0, toRead);
+                if (read != toRead) throw new EndOfStreamException("Niepełne dane P6.");
+            }
+            else
+            {
+                // 2 bajty big-endian na kanał
+                double scale = 255.0 / maxVal;
+                int totalSamples = pixelCount * 3;
+                for (int i = 0; i < totalSamples; i++)
+                {
+                    int hi = br.ReadByte();
+                    int lo = br.ReadByte();
+                    if (hi < 0 || lo < 0) throw new EndOfStreamException("Niepełne dane P6 (16-bit).");
+                    int value = (hi << 8) | lo;
+                    int scaled = (int)Math.Round(value * scale);
+                    rgb[i] = (byte)Math.Clamp(scaled, 0, 255);
+                }
+            }
+
+            return BuildBitmapFromRGB24(width, height, rgb);
+        }
+
+        // -----------------------------------------
+        //        Helpery PPM / Bitmap WPF
+        // -----------------------------------------
+
+        private static BitmapSource BuildBitmapFromRGB24(int width, int height, byte[] rgb)
+        {
+            // stride = width * 3 bajty dla RGB24
+            int stride = width * 3;
+            var wb = new WriteableBitmap(width, height, 96, 96, PixelFormats.Rgb24, null);
+            wb.WritePixels(new Int32Rect(0, 0, width, height), rgb, stride, 0);
+            wb.Freeze();
+            return wb;
+        }
+
+        private static string ReadPPMFormat(string filePath)
+        {
+            using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            using var sr = new StreamReader(fs, Encoding.ASCII, detectEncodingFromByteOrderMarks: false);
+            string? first = sr.ReadLine();
+            if (first == null) throw new InvalidDataException("Plik pusty.");
+            return first.Trim();
+        }
+
+        // P3: czytaj wiersze ignorując komentarze i puste linie
+        private static string ReadNonEmptyNonCommentLine(StreamReader sr)
+        {
+            string? line;
+            while ((line = sr.ReadLine()) != null)
+            {
+                line = StripComment(line).Trim();
+                if (line.Length > 0) return line;
+            }
+            throw new EndOfStreamException("Nie znaleziono oczekiwanej linii.");
+        }
+
+        private static void ReadWidthHeight(StreamReader sr, out int width, out int height)
+        {
+            // Tokenuj aż zbierzesz 2 liczby
+            width = height = 0;
+            var tokens = new Queue<string>();
+
+            while (tokens.Count < 2)
+            {
+                string line = ReadNonEmptyNonCommentLine(sr);
+                foreach (var t in line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries))
+                    tokens.Enqueue(t);
+            }
+
+            if (!int.TryParse(tokens.Dequeue(), out width) || !int.TryParse(tokens.Dequeue(), out height))
+                throw new InvalidDataException("Niepoprawne wymiary obrazu.");
+        }
+
+        private static int ReadNextIntToken(StreamReader sr)
+        {
+            while (true)
+            {
+                int ch = sr.Peek();
+                if (ch == -1) throw new EndOfStreamException();
+
+                // Pomijaj białe znaki i komentarze
+                if (ch == '#')
+                {
+                    sr.ReadLine(); // cała linia komentarza
+                    continue;
+                }
+                if (char.IsWhiteSpace((char)ch))
+                {
+                    sr.Read(); // zjedz biały znak
+                    continue;
+                }
+
+                // Zbieraj token numeryczny
+                var sb = new StringBuilder();
+                while (true)
+                {
+                    ch = sr.Peek();
+                    if (ch == -1) break;
+                    char c = (char)ch;
+                    if (char.IsWhiteSpace(c) || c == '#') break;
+                    sb.Append(c);
+                    sr.Read();
+                }
+
+                if (int.TryParse(sb.ToString(), out int val))
+                    return val;
+
+                // Jeśli to nie liczba, kontynuuj poszukiwanie
+            }
+        }
+
+        // P6: tokeny ASCII z BinaryReaderem, pomijanie komentarzy
+        private static string ReadAsciiToken(BinaryReader br)
+        {
+            // Pomijaj białe znaki i komentarze zaczynające się od '#'
+            int b;
+            // Skip whitespace
+            do
+            {
+                b = br.ReadByte();
+                if (b == '#')
+                {
+                    // zjedz do końca linii
+                    while (true)
+                    {
+                        int c = br.ReadByte();
+                        if (c == '\n' || c == '\r') break;
+                    }
+                    b = ' '; // kontynuuj pętlę whitespace
+                }
+            } while (IsAsciiWhitespace((byte)b));
+
+            // Teraz b jest pierwszym znakiem tokenu
+            var bytes = new List<byte> { (byte)b };
+            while (br.PeekChar() != -1)
+            {
+                byte c = (byte)br.PeekChar();
+                if (IsAsciiWhitespace(c) || c == '#') break;
+                bytes.Add(br.ReadByte());
+            }
+
+            return Encoding.ASCII.GetString(bytes.ToArray());
+        }
+
+        private static bool IsAsciiWhitespace(byte c) =>
+            c == (byte)' ' || c == (byte)'\t' || c == (byte)'\r' || c == (byte)'\n' || c == (byte)'\f' || c == (byte)'\v';
+
+        private static string StripComment(string line)
+        {
+            int idx = line.IndexOf('#');
+            return idx < 0 ? line : line[..idx];
         }
     }
 }

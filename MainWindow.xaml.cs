@@ -31,9 +31,16 @@ namespace Graf
 
         private void OpenPpmBtn_Click(object sender, RoutedEventArgs e)
         {
-            var win = new PPM(); // Twoje okno PPM
+            var win = new Cmyk();
             win.Owner = this;
             win.ShowDialog();
+        }
+
+        private void PPM_Click(object sender, RoutedEventArgs e)
+        {
+            PPM pPM = new PPM();
+            pPM.Show();
+            this.Hide();
         }
     }
 }
