@@ -22,7 +22,6 @@ namespace Graf.Views
         public PPM()
         {
             InitializeComponent();
-            // Transformacje do zoom/pan
             var transformGroup = new TransformGroup();
             _imageScale = new ScaleTransform(1.0, 1.0);
             _imageTranslate = new TranslateTransform(0, 0);
@@ -30,7 +29,6 @@ namespace Graf.Views
             transformGroup.Children.Add(_imageTranslate);
             displayedImage.RenderTransform = transformGroup;
 
-            // Zoom kółkiem + Ctrl
             displayedImage.PreviewMouseWheel += (sender, e) =>
             {
                 if (Keyboard.Modifiers == ModifierKeys.Control)
@@ -42,7 +40,6 @@ namespace Graf.Views
                 }
             };
 
-            // Pan LPM
             displayedImage.PreviewMouseLeftButtonDown += (sender, e) =>
             {
                 _lastMousePosition = e.GetPosition(displayedImage);
@@ -60,7 +57,6 @@ namespace Graf.Views
 
                 var newPos = e.GetPosition(displayedImage);
 
-                // Pan dostępny sensownie przy powiększeniu
                 if (_imageScale.ScaleX > 1.0 || _imageScale.ScaleY > 1.0)
                 {
                     double dx = newPos.X - _lastMousePosition.X;
@@ -71,11 +67,9 @@ namespace Graf.Views
                 }
             };
 
-            // Podgląd koloru pikseli
             displayedImage.MouseMove += OnImageMouseMove;
         }
 
-        // Mapowanie myszy -> piksel z uwzględnieniem transformacji i konwersją do BGRA32
         private void OnImageMouseMove(object sender, MouseEventArgs e)
         {
             if (displayedImage.Source is not BitmapSource src) return;
@@ -83,7 +77,6 @@ namespace Graf.Views
 
             var pos = e.GetPosition(displayedImage);
 
-            // Odwrócenie RenderTransform
             if (displayedImage.RenderTransform is Transform t && !t.Value.IsIdentity)
             {
                 var m = t.Value;
@@ -102,11 +95,10 @@ namespace Graf.Views
 
             if (x < 0 || y < 0 || x >= src.PixelWidth || y >= src.PixelHeight) return;
 
-            // Wymuszenie BGRA32 dla stabilnego odczytu
             var fmt = PixelFormats.Bgra32;
             BitmapSource converted = src.Format == fmt ? src : new FormatConvertedBitmap(src, fmt, null, 0);
 
-            byte[] pixel = new byte[4]; // BGRA
+            byte[] pixel = new byte[4];
             converted.CopyPixels(new Int32Rect(x, y, 1, 1), pixel, 4, 0);
 
             var color = Color.FromArgb(pixel[3], pixel[2], pixel[1], pixel[0]);
@@ -162,7 +154,7 @@ namespace Graf.Views
         {
             var img = new BitmapImage();
             img.BeginInit();
-            img.CacheOption = BitmapCacheOption.OnLoad; // zwolnij uchwyt do pliku
+            img.CacheOption = BitmapCacheOption.OnLoad;
             img.UriSource = new Uri(filePath);
             img.EndInit();
             img.Freeze();
@@ -217,26 +209,20 @@ namespace Graf.Views
             }
         }
 
-        // -----------------------------------------
-        //             PPM: P3 (ASCII)
-        // -----------------------------------------
+        //             PPM P3 (ASCII)
         private BitmapSource LoadPPM_P3(string filePath)
         {
             using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
             using var sr = new StreamReader(fs, Encoding.ASCII, detectEncodingFromByteOrderMarks: false);
 
-            // 1) Magic
             string magic = ReadNonEmptyNonCommentLine(sr);
             if (magic != "P3") throw new InvalidDataException("Niepoprawny nagłówek P3.");
 
-            // 2) width height
             ReadWidthHeight(sr, out int width, out int height);
 
-            // 3) maxVal
             int maxVal = ReadNextIntToken(sr);
             if (maxVal <= 0) throw new InvalidDataException("Niepoprawne maxVal.");
 
-            // 4) RGB wartości jako tokeny liczbowe
             int expectedSamples = width * height * 3;
             byte[] rgb = new byte[expectedSamples];
             int idx = 0;
@@ -252,34 +238,29 @@ namespace Graf.Views
                 rgb[idx++] = (byte)Math.Clamp(val, 0, 255);
             }
 
-            // 5) Utworzenie WriteableBitmap RGB24
             return BuildBitmapFromRGB24(width, height, rgb);
         }
 
-        // -----------------------------------------
-        //             PPM: P6 (BINARNY)
-        // -----------------------------------------
+
+        //             PPM P6 (BINARNY)
+
         private BitmapSource LoadPPM_P6(string filePath)
         {
             using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
             using var br = new BinaryReader(fs, Encoding.ASCII, leaveOpen: false);
 
-            // 1) Magic "P6"
             string magic = ReadAsciiToken(br);
             if (magic != "P6") throw new InvalidDataException("Niepoprawny nagłówek P6.");
 
-            // 2) width height maxVal jako ASCII tokeny z pomijaniem komentarzy
             int width = int.Parse(ReadAsciiToken(br));
             int height = int.Parse(ReadAsciiToken(br));
             int maxVal = int.Parse(ReadAsciiToken(br));
 
             if (width <= 0 || height <= 0 || maxVal <= 0) throw new InvalidDataException("Błędne wymiary lub maxVal.");
 
-            // 3) Co najmniej jeden biały znak po nagłówku
             int next = br.PeekChar();
             if (next == -1) throw new EndOfStreamException();
             if (!IsAsciiWhitespace((byte)next)) throw new InvalidDataException("Brak separatora po nagłówku P6.");
-            // Zjedz pojedynczą spację/CR/LF/tab
             _ = br.ReadByte();
 
             int pixelCount = width * height;
@@ -287,22 +268,26 @@ namespace Graf.Views
 
             if (maxVal <= 255)
             {
-                // 1 bajt na kanał
                 int toRead = pixelCount * 3;
                 int read = br.Read(rgb, 0, toRead);
                 if (read != toRead) throw new EndOfStreamException("Niepełne dane P6.");
             }
             else
             {
-                // 2 bajty big-endian na kanał
-                double scale = 255.0 / maxVal;
+                //CZYTANIE BLOKOWE
                 int totalSamples = pixelCount * 3;
-                for (int i = 0; i < totalSamples; i++)
+                int bytesToRead = totalSamples * 2;
+
+                byte[] buf = br.ReadBytes(bytesToRead);
+                if (buf.Length != bytesToRead)
+                    throw new EndOfStreamException("Niepełne dane P6 (16-bit).");
+
+                double scale = 255.0 / maxVal;
+
+                int bi = 0;
+                for (int i = 0; i < totalSamples; i++, bi += 2)
                 {
-                    int hi = br.ReadByte();
-                    int lo = br.ReadByte();
-                    if (hi < 0 || lo < 0) throw new EndOfStreamException("Niepełne dane P6 (16-bit).");
-                    int value = (hi << 8) | lo;
+                    int value = (buf[bi] << 8) | buf[bi + 1];
                     int scaled = (int)Math.Round(value * scale);
                     rgb[i] = (byte)Math.Clamp(scaled, 0, 255);
                 }
@@ -311,13 +296,10 @@ namespace Graf.Views
             return BuildBitmapFromRGB24(width, height, rgb);
         }
 
-        // -----------------------------------------
-        //        Helpery PPM / Bitmap WPF
-        // -----------------------------------------
+        //        Helpery PPM 
 
         private static BitmapSource BuildBitmapFromRGB24(int width, int height, byte[] rgb)
         {
-            // stride = width * 3 bajty dla RGB24
             int stride = width * 3;
             var wb = new WriteableBitmap(width, height, 96, 96, PixelFormats.Rgb24, null);
             wb.WritePixels(new Int32Rect(0, 0, width, height), rgb, stride, 0);
@@ -348,7 +330,6 @@ namespace Graf.Views
 
         private static void ReadWidthHeight(StreamReader sr, out int width, out int height)
         {
-            // Tokenuj aż zbierzesz 2 liczby
             width = height = 0;
             var tokens = new Queue<string>();
 
@@ -370,7 +351,6 @@ namespace Graf.Views
                 int ch = sr.Peek();
                 if (ch == -1) throw new EndOfStreamException();
 
-                // Pomijaj białe znaki i komentarze
                 if (ch == '#')
                 {
                     sr.ReadLine(); // cała linia komentarza
@@ -382,7 +362,6 @@ namespace Graf.Views
                     continue;
                 }
 
-                // Zbieraj token numeryczny
                 var sb = new StringBuilder();
                 while (true)
                 {
@@ -397,14 +376,11 @@ namespace Graf.Views
                 if (int.TryParse(sb.ToString(), out int val))
                     return val;
 
-                // Jeśli to nie liczba, kontynuuj poszukiwanie
             }
         }
 
-        // P6: tokeny ASCII z BinaryReaderem, pomijanie komentarzy
         private static string ReadAsciiToken(BinaryReader br)
         {
-            // Pomijaj białe znaki i komentarze zaczynające się od '#'
             int b;
             // Skip whitespace
             do
@@ -412,17 +388,15 @@ namespace Graf.Views
                 b = br.ReadByte();
                 if (b == '#')
                 {
-                    // zjedz do końca linii
                     while (true)
                     {
                         int c = br.ReadByte();
                         if (c == '\n' || c == '\r') break;
                     }
-                    b = ' '; // kontynuuj pętlę whitespace
+                    b = ' ';
                 }
             } while (IsAsciiWhitespace((byte)b));
 
-            // Teraz b jest pierwszym znakiem tokenu
             var bytes = new List<byte> { (byte)b };
             while (br.PeekChar() != -1)
             {
