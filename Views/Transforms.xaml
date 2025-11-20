@@ -1,0 +1,195 @@
+﻿<Window x:Class="Graf.Views.Transforms"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Graf.Views"
+        mc:Ignorable="d"
+        Title="Transformacje - Filtry"
+        Height="450" Width="800"
+        Background="#020617"  WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <!-- Kolory bazowe -->
+        <SolidColorBrush x:Key="BackgroundMainBrush" Color="#020617"/>
+        <!-- tło okna -->
+        <SolidColorBrush x:Key="PanelBrush"           Color="#020617"/>
+        <!-- prawa kolumna -->
+        <SolidColorBrush x:Key="ButtonBrush"          Color="#020617"/>
+        <!-- przycisk -->
+        <SolidColorBrush x:Key="ButtonBorderBrush"    Color="#1E293B"/>
+        <SolidColorBrush x:Key="ButtonHoverBrush"     Color="#0F172A"/>
+        <SolidColorBrush x:Key="TextBrush"            Color="#E5E7EB"/>
+
+        <!-- Styl przycisków -->
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource ButtonBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource ButtonBorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{StaticResource ButtonHoverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Styl tekstu -->
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        </Style>
+
+        <!-- Styl RadioButton -->
+        <Style TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="Margin" Value="5,0,5,0"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Background="{StaticResource BackgroundMainBrush}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*"/>
+            <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Podgląd obrazu -->
+        <Grid Grid.Column="0" Margin="10">
+            <Border Background="#020617" BorderBrush="#1E293B" BorderThickness="1" CornerRadius="6">
+                <Image x:Name="displayedImage" Stretch="Uniform"/>
+            </Border>
+        </Grid>
+
+        <!-- Panel sterowania -->
+        <Grid Grid.Column="1" Background="{StaticResource PanelBrush}" Margin="10,15,15,15">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="4*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Typ -->
+            <TextBlock Text="Typ" FontWeight="Bold" FontSize="16" Margin="5,0,0,5"/>
+
+            <StackPanel Orientation="Horizontal" Grid.Row="1">
+                <!-- przycisk Transform zakomentowany -->
+                <!-- <RadioButton Content="Przekształcenia" x:Name="TransformRadio" 
+                              IsChecked="True" Checked="TransformRadio_Checked"/> -->
+                <RadioButton Content="Filtry" x:Name="FiltersRadio"
+                             IsChecked="True"
+                             Checked="FiltersRadio_Checked"/>
+            </StackPanel>
+
+            <Grid Grid.Row="2" Margin="0,10,0,10">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <Button Grid.Row="0" Content="Wczytaj obraz"
+                        HorizontalAlignment="Stretch"
+                        Click="LoadImage_Click"/>
+
+                <!-- Transformacje – ukryte na start -->
+                <Grid Grid.Row="1" x:Name="transformGrid" Visibility="Collapsed" Margin="0,10,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+
+                    <Button Grid.Row="0" Grid.Column="0" Content="Dodawanie" Click="ApplyAddition_Click" />
+                    <Button Grid.Row="0" Grid.Column="1" Content="Odejmowanie" Click="ApplySubtraction_Click" />
+                    <Button Grid.Row="1" Grid.Column="0" Content="Mnożenie" Click="ApplyMultiplication_Click" />
+                    <Button Grid.Row="1" Grid.Column="1" Content="Dzielenie" Click="ApplyDivision_Click" />
+                    <Button Grid.Row="2" Grid.Column="0" Content="Zmiana jasności" Click="ApplyBrightness_Click" />
+                    <Grid Grid.Row="2" Grid.Column="1">
+                        <Grid.RowDefinitions>
+                            <RowDefinition/>
+                            <RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Skala szarości"
+                                   Grid.ColumnSpan="2"
+                                   FontSize="16"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontWeight="Bold"
+                                   TextAlignment="Center"/>
+                        <Button Grid.Column="0" Grid.Row="1" Content="1" Click="ApplyGrayscale_Click" />
+                        <Button Grid.Column="1" Grid.Row="1" Content="2" Click="ApplyGrayscale2_Click" />
+                    </Grid>
+                </Grid>
+
+                <!-- Filtry – DOMYŚLNIE widoczne -->
+                <Grid Grid.Row="1" x:Name="filtersGrid"
+                      Grid.RowSpan="1"
+                      Visibility="Visible"
+                      Margin="0,10,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+
+                    <Button Grid.Row="0" Grid.Column="0" Content="Wygładzający" Click="ApplyAverageFilter_Click" />
+                    <Button Grid.Row="0" Grid.Column="1" Content="Medianowy" Click="ApplyMedianFilter_Click" />
+                    <Button Grid.Row="1" Grid.Column="0" Content="Sobel" Click="ApplySobelFilter_Click" />
+                    <Button Grid.Row="1" Grid.Column="1" Content="Górnoprzepustowy" Click="ApplyHighPassFilter_Click" />
+                    <Button Grid.Row="2" Grid.Column="0" Content="Rozmycie gaussowskie" Click="ApplyGaussianBlurFilter_Click" />
+                </Grid>
+            </Grid>
+
+            <!-- Pole wartości -->
+            <Grid Grid.Row="3" x:Name="valueFieldGrid" Margin="0,10,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+              <!--
+  <TextBlock Text="Wartość"
+                           FontSize="16"
+                           FontWeight="Bold"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>           
+                -->
+                <TextBox Grid.Column="1" x:Name="ValueTextBox"
+                         VerticalAlignment="Center"
+                         Margin="5,0,0,0"
+                         Background="#020617"
+                         Foreground="{StaticResource TextBrush}"
+                         BorderBrush="#1E293B"/>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

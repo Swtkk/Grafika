@@ -76,7 +76,7 @@ namespace Graf.Views {
                 return;
             }
             _contentLoaded = true;
-            System.Uri resourceLocater = new System.Uri("/Graf;V1.0.0.0;component/views/ppm.xaml", System.UriKind.Relative);
+            System.Uri resourceLocater = new System.Uri("/Graf;component/views/ppm.xaml", System.UriKind.Relative);
             
             #line 1 "..\..\..\..\Views\PPM.xaml"
             System.Windows.Application.LoadComponent(this, resourceLocater);

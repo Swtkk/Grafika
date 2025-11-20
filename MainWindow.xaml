@@ -1,7 +1,7 @@
 ﻿<Window x:Class="Graf.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Grafika – wybór modułu" Height="380" Width="530"
+        Title="Grafika – wybór modułu" Height="580" Width="530"
         WindowStartupLocation="CenterScreen"
         Background="#0B0F1A">
 
@@ -38,6 +38,19 @@
                     Background="#1A2233" Foreground="White"
                     BorderBrush="#445" BorderThickness="1"
                     Click="PPM_Click"/>
+            <Button x:Name="Transform" Content="Filtry"
+                    Padding="18,12" FontSize="18" Width="260" Margin="10"
+                    Background="#1A2233" Foreground="White"
+                    BorderBrush="#445" BorderThickness="1"
+                    Click="Transformations_Click"/>
+            
+            <Button x:Name="Operators" Content="Operatory"
+                    Padding="18,12" FontSize="18" Width="260" Margin="10"
+                    Background="#1A2233" Foreground="White"
+                    BorderBrush="#445" BorderThickness="1"
+                    Click="Operators_Click"/>
+            
+            
         </StackPanel>
 
         <!-- Stopka -->

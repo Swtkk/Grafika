@@ -106,7 +106,7 @@ namespace Graf.Views
         }
 
         // Wczytywanie obrazów
-        private void LoadImage_Click(object sender, RoutedEventArgs e)
+        private async void LoadImage_Click(object sender, RoutedEventArgs e)
         {
             var ofd = new OpenFileDialog
             {
@@ -135,7 +135,8 @@ namespace Graf.Views
                         MessageBox.Show("Nieobsługiwany format PPM. Wspierane: P3, P6.");
                     }
                 }
-                else if (path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
+                else if (path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                         path.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
                 {
                     displayedImage.Source = LoadJpeg(path);
                 }
@@ -209,40 +210,176 @@ namespace Graf.Views
             }
         }
 
-        //             PPM P3 (ASCII)
+        // =====================  PPM P3 (ASCII) – WERSJA BLOKOWA  =====================
+
         private BitmapSource LoadPPM_P3(string filePath)
         {
-            using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            using var sr = new StreamReader(fs, Encoding.ASCII, detectEncodingFromByteOrderMarks: false);
+            // BLOKOWE wczytanie całego pliku
+            byte[] data = File.ReadAllBytes(filePath);
+            int len = data.Length;
+            int index = 0;
 
-            string magic = ReadNonEmptyNonCommentLine(sr);
-            if (magic != "P3") throw new InvalidDataException("Niepoprawny nagłówek P3.");
+            static bool IsAsciiWhitespace(byte c) =>
+                c == (byte)' ' || c == (byte)'\t' ||
+                c == (byte)'\r' || c == (byte)'\n' ||
+                c == (byte)'\f' || c == (byte)'\v';
 
-            ReadWidthHeight(sr, out int width, out int height);
+            void SkipWhitespaceAndComments()
+            {
+                while (index < len)
+                {
+                    byte b = data[index];
 
-            int maxVal = ReadNextIntToken(sr);
-            if (maxVal <= 0) throw new InvalidDataException("Niepoprawne maxVal.");
+                    if (b == (byte)'#')
+                    {
+                        while (index < len && data[index] != (byte)'\n' && data[index] != (byte)'\r')
+                            index++;
+                        continue;
+                    }
+
+                    if (IsAsciiWhitespace(b))
+                    {
+                        index++;
+                        continue;
+                    }
+
+                    break;
+                }
+            }
+
+            string ReadStringToken()
+            {
+                SkipWhitespaceAndComments();
+                if (index >= len)
+                    throw new EndOfStreamException("Nieoczekiwany koniec danych przy odczycie tokenu.");
+
+                int start = index;
+                while (index < len)
+                {
+                    byte b = data[index];
+                    if (IsAsciiWhitespace(b) || b == (byte)'#')
+                        break;
+                    index++;
+                }
+
+                int count = index - start;
+                if (count <= 0)
+                    throw new InvalidDataException("Pusty token w nagłówku PPM.");
+
+                return Encoding.ASCII.GetString(data, start, count);
+            }
+
+            int ReadIntToken()
+            {
+                SkipWhitespaceAndComments();
+                if (index >= len)
+                    throw new EndOfStreamException("Nieoczekiwany koniec danych przy odczycie liczby.");
+
+                int value = 0;
+                bool hasDigit = false;
+
+                while (index < len)
+                {
+                    byte b = data[index];
+
+                    if (b >= (byte)'0' && b <= (byte)'9')
+                    {
+                        hasDigit = true;
+                        value = value * 10 + (b - (byte)'0');
+                        index++;
+                    }
+                    else if (IsAsciiWhitespace(b) || b == (byte)'#')
+                    {
+                        break;
+                    }
+                    else
+                    {
+                        throw new InvalidDataException($"Nieoczekiwany znak w danych P3: {(char)b}");
+                    }
+                }
+
+                if (!hasDigit)
+                    throw new InvalidDataException("Nie znaleziono cyfr w miejscu oczekiwanej liczby.");
+
+                return value;
+            }
+
+            // --- nagłówek ---
+            string magic = ReadStringToken();
+            if (magic != "P3")
+                throw new InvalidDataException("Niepoprawny nagłówek P3.");
+
+            int width = ReadIntToken();
+            int height = ReadIntToken();
+            int maxVal = ReadIntToken();
+
+            if (width <= 0 || height <= 0 || maxVal <= 0)
+                throw new InvalidDataException("Błędne wymiary obrazu lub maxVal.");
 
             int expectedSamples = width * height * 3;
             byte[] rgb = new byte[expectedSamples];
-            int idx = 0;
 
-            while (idx < expectedSamples)
+            // skalowanie liniowe kolorów
+            double scale = maxVal == 255 ? 1.0 : 255.0 / maxVal;
+
+            for (int i = 0; i < expectedSamples; i++)
             {
-                int val = ReadNextIntToken(sr);
-                if (maxVal != 255)
-                {
-                    double scale = 255.0 / maxVal;
+                int val = ReadIntToken();
+
+                if (scale != 1.0)
                     val = (int)Math.Round(val * scale);
-                }
-                rgb[idx++] = (byte)Math.Clamp(val, 0, 255);
+
+                rgb[i] = (byte)Math.Clamp(val, 0, 255);
             }
 
             return BuildBitmapFromRGB24(width, height, rgb);
         }
 
 
-        //             PPM P6 (BINARNY)
+        private string ReadStringToken(byte[] data, ref int index)
+        {
+            int len = data.Length;
+
+            static bool IsAsciiWhitespace(byte c) =>
+                c == (byte)' ' || c == (byte)'\t' ||
+                c == (byte)'\r' || c == (byte)'\n' ||
+                c == (byte)'\f' || c == (byte)'\v';
+
+            // Pomijamy komentarze i białe znaki
+            while (index < len)
+            {
+                byte b = data[index];
+                if (b == '#')
+                {
+                    while (index < len && data[index] != '\n' && data[index] != '\r')
+                        index++;
+                    continue;
+                }
+
+                if (IsAsciiWhitespace(b))
+                {
+                    index++;
+                    continue;
+                }
+
+                break;
+            }
+
+            // Token znaków
+            int start = index;
+            while (index < len)
+            {
+                byte b = data[index];
+                if (IsAsciiWhitespace(b) || b == (byte)'#')
+                    break;
+                index++;
+            }
+
+            return Encoding.ASCII.GetString(data, start, index - start);
+        }
+
+
+        // =====================  PPM P6 (BINARNY) – jak u Ciebie  =====================
 
         private BitmapSource LoadPPM_P6(string filePath)
         {
@@ -274,7 +411,7 @@ namespace Graf.Views
             }
             else
             {
-                //CZYTANIE BLOKOWE
+                // CZYTANIE BLOKOWE 16-bit
                 int totalSamples = pixelCount * 3;
                 int bytesToRead = totalSamples * 2;
 
@@ -296,7 +433,7 @@ namespace Graf.Views
             return BuildBitmapFromRGB24(width, height, rgb);
         }
 
-        //        Helpery PPM 
+        // =====================  Helpery PPM  =====================
 
         private static BitmapSource BuildBitmapFromRGB24(int width, int height, byte[] rgb)
         {
@@ -314,69 +451,6 @@ namespace Graf.Views
             string? first = sr.ReadLine();
             if (first == null) throw new InvalidDataException("Plik pusty.");
             return first.Trim();
-        }
-
-        // P3: czytaj wiersze ignorując komentarze i puste linie
-        private static string ReadNonEmptyNonCommentLine(StreamReader sr)
-        {
-            string? line;
-            while ((line = sr.ReadLine()) != null)
-            {
-                line = StripComment(line).Trim();
-                if (line.Length > 0) return line;
-            }
-            throw new EndOfStreamException("Nie znaleziono oczekiwanej linii.");
-        }
-
-        private static void ReadWidthHeight(StreamReader sr, out int width, out int height)
-        {
-            width = height = 0;
-            var tokens = new Queue<string>();
-
-            while (tokens.Count < 2)
-            {
-                string line = ReadNonEmptyNonCommentLine(sr);
-                foreach (var t in line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries))
-                    tokens.Enqueue(t);
-            }
-
-            if (!int.TryParse(tokens.Dequeue(), out width) || !int.TryParse(tokens.Dequeue(), out height))
-                throw new InvalidDataException("Niepoprawne wymiary obrazu.");
-        }
-
-        private static int ReadNextIntToken(StreamReader sr)
-        {
-            while (true)
-            {
-                int ch = sr.Peek();
-                if (ch == -1) throw new EndOfStreamException();
-
-                if (ch == '#')
-                {
-                    sr.ReadLine(); // cała linia komentarza
-                    continue;
-                }
-                if (char.IsWhiteSpace((char)ch))
-                {
-                    sr.Read(); // zjedz biały znak
-                    continue;
-                }
-
-                var sb = new StringBuilder();
-                while (true)
-                {
-                    ch = sr.Peek();
-                    if (ch == -1) break;
-                    char c = (char)ch;
-                    if (char.IsWhiteSpace(c) || c == '#') break;
-                    sb.Append(c);
-                    sr.Read();
-                }
-
-                if (int.TryParse(sb.ToString(), out int val))
-                    return val;
-
-            }
         }
 
         private static string ReadAsciiToken(BinaryReader br)
@@ -409,7 +483,9 @@ namespace Graf.Views
         }
 
         private static bool IsAsciiWhitespace(byte c) =>
-            c == (byte)' ' || c == (byte)'\t' || c == (byte)'\r' || c == (byte)'\n' || c == (byte)'\f' || c == (byte)'\v';
+            c == (byte)' ' || c == (byte)'\t' ||
+            c == (byte)'\r' || c == (byte)'\n' ||
+            c == (byte)'\f' || c == (byte)'\v';
 
         private static string StripComment(string line)
         {

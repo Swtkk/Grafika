@@ -42,5 +42,19 @@ namespace Graf
             pPM.Show();
             this.Hide();
         }
+
+        private void Operators_Click(object sender, RoutedEventArgs e)
+        {
+            Operators operators = new Operators();
+            operators.Show();
+            this.Hide();
+        }
+
+        private void Transformations_Click(object sender, RoutedEventArgs e)
+        {
+            Transforms transform = new Transforms();
+            transform.Show();
+            this.Hide();
+        }
     }
 }
